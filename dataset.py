@@ -4,6 +4,8 @@ import numpy as np
 import matplotlib.image as mpimg
 from datetime import datetime
 import time
+import re
+
 
 class Dataset(object):
     def __init__(self, data_root, t_w=800, t_h=600, timed=False):
@@ -18,6 +20,13 @@ class Dataset(object):
         if timed:
             self.starttime = None
             self.delayed = 0
+
+        #check video length
+        result = subprocess.Popen(["ffprobe", os.path.join(data_root, 'rgb', 'video.mp4')],
+        stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
+        temp_str = str([x for x in result.stdout.readlines() if "Duration" in str(x)][0])
+        h, m, s = list(map(float, re.search('Duration: (.*), s', temp_str).group(1).split(':')))
+        self.video_duration = (h*60 + m)*60 + s
 
     def __iter__(self):
         return self
@@ -40,7 +49,7 @@ class Dataset(object):
         input_file = os.path.join(data_root, 'rgb', 'video.mp4')
         command = ['ffmpeg',
                    '-loglevel', 'fatal',
-                   '-ss', str(cur_time / 1000),
+                   '-ss', str(min(cur_time / 1000, self.video_duration)),
                    '-i', input_file,
                    '-vf', 'scale=%d:%d' % (self.t_w, self.t_h),
                    '-vframes', '1',
